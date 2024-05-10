@@ -26,5 +26,5 @@ if uploaded_file != None:
         maxtags = 4
     )
 
-    if st.sidebar.button("Done!"):  
-        st.sidebar.write("Developing...")
+    if st.sidebar.button("Done!"):
+        st.write("Developing...")

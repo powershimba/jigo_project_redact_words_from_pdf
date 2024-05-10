@@ -15,7 +15,6 @@ def extract_img(pdf_doc, page_number):
     image_bytes = page.get_pixmap().tobytes()
     return image_bytes
 
-# TODO: Transform to Class
 def show_pdf(uploaded_file, key_number):
 
     pdf_doc = read_pdf(uploaded_file)
@@ -29,57 +28,52 @@ def show_pdf(uploaded_file, key_number):
 
     return
 
-class Redactor:
+def get_sensitive_data(lines, sensitive_words):
     
-    def get_sensitive_data(self, lines, sensitive_words):
+    for word in sensitive_words:
+
+        # Create pattern with word boundaries.
+        # Ensure word as a whole word,
+        # not as part of another word.
+        pattern = r'\b' + re.escape(word) + r'\b'
+                    
+        for line in lines:
+
+            # matching the word to each line
+            if re.search(pattern, line, re.IGNORECASE):
+                search = re.search(pattern, line, re.IGNORECASE)
+                return search.group()
+
+def extract_text_from_page(page):
+    return page.getText("text").split('\n')
+    
+
+# In Progress
+def redaction(uploaded_file, sensitive_words):
+    pdf_doc = fitz.open(uploaded_file)
+    
+    # Iterate each page
+    for page in pdf_doc:
         
+        # For fixing alignment issues with rect boxes
+        page._wrapContents()
+        text_from_page = extract_text_from_page()
+
+        # Iterate each word
         for word in sensitive_words:
+            sensitive_data = get_sensitive_data(
+                page.getText("text").split('\n'), 
+                word)
 
-            # Create pattern with word boundaries.
-            # Ensure word as a whole word,
-            # not as part of another word.
-            pattern = r'\b' + re.escape(word) + r'\b'
-                        
-            for line in lines:
+        for data in sensitive_data:
+            areas = page.searchFor(data)
 
-                # matching the word to each line
-                if re.search(pattern, line, re.IGNORECASE):
-                    search = re.search(pattern, line, re.IGNORECASE)
-                    yield search.group(1)
-
-    # constructor
-    def __init__(self, 
-                 uploaded_file,
-                 lines, 
-                 sensitive_words):
+            # Draw outline over sensitive data
+            [page.addRedactAnnot(area, fill = (0, 0, 0)) for area in areas]
         
-        self.uploaded_file = uploaded_file
-        self.lines = lines
-        self.sensitive_words = sensitive_words
-    
-    def redaction(self):
-        pdf_doc = fitz.open(self.uploaded_file)
+        page._apply_redactions()
+        pdf_doc.save('redacted.pdf')
         
-        for page in pdf_doc:
-            
-            # For fixing alignment issues with rect boxes
-            page._wrapContents()
-            
-            sensitive = self.get_sensitive_data(page.getText("text").split('\n'))
+        st.sidebar.wirte("Success! Redacted PDF is Downloaded.")
 
-            for data in sensitive:
-                areas = page.searchFor(data)
-
-                # Draw outline over sensitive data
-                [page.addRedactAnnot(area, fill = (0, 0, 0)) for area in areas]
-            
-            page._apply_redactions()
-            pdf_doc.save('redacted.pdf')
-
-            st.download_button(
-                label = "Download Redacted PDF",
-
-                # TODO: debug path
-                data = 'redacted.pdf',
-                file_name = "redacted_file.pdf"
-           )
+    return
